@@ -40,6 +40,9 @@ Qwen2VisionAttentionImpl::Qwen2VisionAttentionImpl(
   num_attention_heads_per_partition_ = num_heads / tp_size;
   scale_ = 1.0 / std::sqrt(static_cast<float>(hidden_size_per_attention_head_));
 
+  bool hias_bias = args.model_type() != "oxygenvlm";
+  LOG(INFO) << "QKV with bias: " << has_bias
+            << ", model_type:" << args.model_type();
   qkv_proj_ =
       register_module("qkv_proj",
                       QKVParallelLinear(hidden_size,
@@ -47,7 +50,7 @@ Qwen2VisionAttentionImpl::Qwen2VisionAttentionImpl(
                                         num_attention_heads_per_partition_,
                                         hidden_size_per_attention_head_,
                                         /*num_kv_head_replicas=*/1,
-                                        /*bias=*/true,
+                                        /*bias=*/has_bias,
                                         /*gather_output=*/false,
                                         parallel_args,
                                         options));
@@ -55,7 +58,7 @@ Qwen2VisionAttentionImpl::Qwen2VisionAttentionImpl(
   proj_ = register_module("proj",
                           RowParallelLinear(hidden_size,
                                             hidden_size,
-                                            /*bias=*/true,
+                                            /*bias=*/has_bias,
                                             /*input_is_parallelized=*/true,
                                             /*if_reduce_results=*/true,
                                             quant_args,
@@ -151,7 +154,10 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
     std::vector<int32_t>& cu_seq_len_vec,
     ModelInputParams& params) {
   // 1. qkv projection
+  // LOG(INFO) << "qkv proj in: " << hidden_states;
+  // LOG(INFO) << "qkv proj weight: " << qkv_proj_->weight();
   auto qkv = qkv_proj_->forward(hidden_states);
+  // LOG(INFO) << "qkv proj: " << qkv;
   // 2. split qkv
   auto qkv_split = split_qkv(qkv);
   // 3. transpose [s, b, h, d] -> [b, s, h, d]

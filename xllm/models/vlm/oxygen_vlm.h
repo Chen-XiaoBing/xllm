@@ -1004,6 +1004,7 @@ class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
                         torch::Tensor grid_thw,
                         const ModelInputParams& input_params) {
     hidden_states = patch_embed_(hidden_states);
+    LOG(INFO) << "patch_embed out: " << hidden_states;
     hidden_states = std::get<0>(post_conv_layernorm_(hidden_states));
 
     auto [rotary_pos_emb, image_type_ids] = rot_pos_emb(grid_thw);
@@ -1050,6 +1051,7 @@ class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
                                 grid_thw,
                                 image_type_ids.select(1, 0),
                                 image_type_ids.select(1, 1));
+    LOG(INFO) << "vision embed out: " << hidden_states;
     ModelInputParams& input_params_new =
         const_cast<ModelInputParams&>(input_params);
     torch::Tensor cu_seqlens_cpu = cu_seqlens.cpu();
@@ -1059,6 +1061,7 @@ class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
     cu_seqlens = cu_seqlens.to(hidden_states.device());
     LOG(INFO) << "===> cuseqlens: " << cu_seqlens;
     for (int idx = 0; idx < blocks_->size(); ++idx) {
+      // LOG(INFO) << "====> layer: " << idx;
       hidden_states = layers_[idx](hidden_states,
                                    m_cos,
                                    m_sin,
@@ -1067,6 +1070,7 @@ class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
                                    input_params_new,
                                    idx);
     }
+    LOG(INFO) << "vision layers out: " << hidden_states;
     LOG(INFO) << "start post layernorm";
     hidden_states = std::get<0>(post_layernorm_(hidden_states));
     hidden_states = hidden_states.view(
@@ -1075,8 +1079,10 @@ class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
     hidden_states = hidden_states.permute({0, 3, 1, 2});
     LOG(INFO) << "start downsample";
     hidden_states = downsample_(hidden_states).view({-1, out_hidden_size_});
+    LOG(INFO) << "vision downsample out: " << hidden_states;
     LOG(INFO) << "start merger";
     hidden_states = merger_(hidden_states);
+    LOG(INFO) << "vision merger out: " << hidden_states;
     LOG(INFO) << "finish merger";
     LOG(INFO) << "OxygenVLMVisionTransformer output: " << hidden_states;
     return hidden_states;

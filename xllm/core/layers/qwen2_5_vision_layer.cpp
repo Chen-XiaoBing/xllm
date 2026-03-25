@@ -37,11 +37,14 @@ Qwen2_5_VisionLayerImpl::Qwen2_5_VisionLayerImpl(const ModelContext& context,
     is_gated = false;
   }
 
+  bool has_bias = args.model_type() != "oxygenvlm";
+  LOG(INFO) << "MLP with bias: " << with_bias
+            << ", model_type:" << args.model_type();
   mlp_ = register_module("mlp",
                          DenseMLP(dim,
                                   args.mm_intermediate_size(),
                                   /*is_gated=*/is_gated,
-                                  /*has_bias=*/true,
+                                  /*has_bias=*/has_bias,
                                   args.mm_hidden_act(),
                                   /*enable_result_reduction=*/true,
                                   quant_config,
@@ -69,6 +72,7 @@ torch::Tensor Qwen2_5_VisionLayerImpl::forward(
     ModelInputParams& input_params,
     int node_id) {
   auto norm_output1 = std::get<0>(norm1_(hidden_states));
+  // LOG(INFO) << "vision norm1: " << norm_output1;
   auto get_shape_str = [&](const at::Tensor& tensor) {
     std::stringstream ss;
     auto sizes = tensor.sizes();
@@ -80,16 +84,19 @@ torch::Tensor Qwen2_5_VisionLayerImpl::forward(
     ss << "]";
     return ss.str();
   };
-  LOG(INFO) << "===> norm_output1: " << get_shape_str(norm_output1);
+  // LOG(INFO) << "===> norm_output1: " << get_shape_str(norm_output1);
   auto output = hidden_states + attention_(norm_output1,
                                            m_cos_pos,
                                            m_sin_pos,
                                            cu_seq_len,
                                            cu_seq_len_vec,
                                            input_params);
+  // LOG(INFO) << "vision attn: " << output;
   auto norm_output2 = std::get<0>(norm2_(output));
+  // LOG(INFO) << "vision norm2: " << norm_output2;
   output = output + mlp_(norm_output2);
-  LOG(INFO) << "===> output: " << get_shape_str(output);
+  // LOG(INFO) << "vision output: " << output;
+  // LOG(INFO) << "===> output: " << get_shape_str(output);
   return output;
 }
 
