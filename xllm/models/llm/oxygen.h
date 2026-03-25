@@ -113,7 +113,7 @@ class OxygenModelImpl : public QWen3ModelImpl {
                 attn_metadata,
                 kv_caches[i],
                 input_params_new);
-      LOG(INFO) << "layer " << i << " output: " << h;
+      // LOG(INFO) << "layer " << i << " output: " << h;
 
       if (use_deepstack) {
         if (deep_stacks.size() > 0 && i < deep_stacks.size()) {
@@ -121,7 +121,7 @@ class OxygenModelImpl : public QWen3ModelImpl {
               h, input_params.visual_pos_masks, deep_stacks[i]);
         }
       }
-      LOG(INFO) << "layer " << i << " deepstack process output: " << h;
+      // LOG(INFO) << "layer " << i << " deepstack process output: " << h;
     }
     auto [hidden_states, residual_out] = norm_(h, residual);
     LOG(INFO) << "OxygenForCausalLM output: " << hidden_states;

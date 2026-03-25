@@ -24,8 +24,9 @@ limitations under the License.
 #endif
 namespace {
 inline bool is_qwen3_model(const std::string& model_type) {
+  // LOG(INFO) << "model_type: " << model_type;
   static const std::unordered_set<std::string> qwen3_type_set = {
-      "qwen3", "qwen3_vl", "qwen3_moe", "qwen3_vl_moe"};
+      "qwen3", "qwen3_vl", "qwen3_moe", "qwen3_vl_moe", "oxygenvlm"};
   return qwen3_type_set.contains(model_type);
 }
 
@@ -136,9 +137,9 @@ torch::Tensor Qwen2AttentionImpl::forward(
     KVCache& kv_cache) {
   // 1. qkv projection
   auto qkv = qkv_proj_->forward(hidden_states);
-  LOG(INFO) << "decoder layer attn qkv input: " << hidden_states;
-  LOG(INFO) << "decoder layer attn qkv_wieght: " << qkv_proj_->weight();
-  LOG(INFO) << "decoder layer attn qkv: " << qkv;
+  // LOG(INFO) << "decoder layer attn qkv input: " << hidden_states;
+  // LOG(INFO) << "decoder layer attn qkv_wieght: " << qkv_proj_->weight();
+  // LOG(INFO) << "decoder layer attn qkv: " << qkv;
 
   auto q = qkv.slice(/*dim=*/-1, 0, q_size_);
   auto k = qkv.slice(/*dim=*/-1, q_size_, q_size_ + kv_size_);
@@ -187,16 +188,16 @@ torch::Tensor Qwen2AttentionImpl::forward(
   }
   q = q.view({T, q_size_});
   k = k.view({T, kv_size_});
-  LOG(INFO) << "decoder layer attn rope_q: " << q;
-  LOG(INFO) << "decoder layer attn rope_k: " << k;
+  // LOG(INFO) << "decoder layer attn rope_q: " << q;
+  // LOG(INFO) << "decoder layer attn rope_k: " << k;
 
   // 5. store k/v cache and do attention
   auto out = std::get<0>(attn_->forward(attn_metadata, q, k, v, kv_cache));
-  LOG(INFO) << "decoder layer attn out: " << out;
+  // LOG(INFO) << "decoder layer attn out: " << out;
 
   // 6. output projection
   out = o_proj_->forward(out);
-  LOG(INFO) << "decoder layer attn proj out: " << out;
+  // LOG(INFO) << "decoder layer attn proj out: " << out;
   return out;
 }
 

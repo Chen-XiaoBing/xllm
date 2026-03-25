@@ -236,15 +236,15 @@ void AttentionImpl::prefill_forward(
     ss << "]";
     return ss.str();
   };
-  LOG(INFO) << "batch_prefill q: " << get_shape_str(query);
-  LOG(INFO) << "batch_prefill k: " << get_shape_str(key);
-  LOG(INFO) << "batch_prefill value: " << get_shape_str(value);
-  LOG(INFO) << "batch_prefill q_cu_seq_lens: " << attn_metadata.q_cu_seq_lens;
-  LOG(INFO) << "batch_prefill kv_cu_seq_lens: " << attn_metadata.kv_cu_seq_lens;
-  LOG(INFO) << "batch_prefill max_query_len: " << attn_metadata.max_query_len;
-  LOG(INFO) << "batch_prefill max_seq_len: " << attn_metadata.max_seq_len;
-  LOG(INFO) << "batch_prefill sliding_window: " << sliding_window_;
-  LOG(INFO) << "batch_prefill scale: " << scale_;
+  // LOG(INFO) << "batch_prefill q: " << get_shape_str(query);
+  // LOG(INFO) << "batch_prefill k: " << get_shape_str(key);
+  // LOG(INFO) << "batch_prefill value: " << get_shape_str(value);
+  // LOG(INFO) << "batch_prefill q_cu_seq_lens: " <<
+  // attn_metadata.q_cu_seq_lens; LOG(INFO) << "batch_prefill kv_cu_seq_lens: "
+  // << attn_metadata.kv_cu_seq_lens; LOG(INFO) << "batch_prefill max_query_len:
+  // " << attn_metadata.max_query_len; LOG(INFO) << "batch_prefill max_seq_len:
+  // " << attn_metadata.max_seq_len; LOG(INFO) << "batch_prefill sliding_window:
+  // " << sliding_window_; LOG(INFO) << "batch_prefill scale: " << scale_;
   xllm::kernel::mlu::batch_prefill(query,
                                    key,
                                    value,
@@ -267,8 +267,8 @@ void AttentionImpl::prefill_forward(
                                    /*window_size_right=*/-1,
                                    /*compute_dtype=*/"float",
                                    /*return_lse=*/false);
-  LOG(INFO) << "batch_prefill output: " << get_shape_str(output);
-  LOG(INFO) << "batch_prefill output: " << output;
+  // LOG(INFO) << "batch_prefill output: " << get_shape_str(output);
+  // LOG(INFO) << "batch_prefill output: " << output;
 }
 
 void AttentionImpl::decoder_forward(

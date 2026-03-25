@@ -54,8 +54,8 @@ void Qwen2DecoderLayerImpl::load_state_dict(const StateDict& state_dict) {
   for (auto i : state_dict.dict_) {
     ss << i.first << "  ";
   }
-  LOG(INFO) << "qwen2 decoder layer prefix: " << state_dict.prefix_
-            << ", keys:" << ss.str();
+  // LOG(INFO) << "qwen2 decoder layer prefix: " << state_dict.prefix_
+  //           << ", keys:" << ss.str();
   attention_->load_state_dict(state_dict.get_dict_with_prefix("self_attn."));
   input_norm_->load_state_dict(
       state_dict.get_dict_with_prefix("input_layernorm."));
@@ -97,22 +97,22 @@ torch::Tensor Qwen2DecoderLayerImpl::forward(
   auto post_fp8_scale = mlp_->get_fp8_input_scale();
 
   // Pre-attention norm
-  LOG(INFO) << "decoder layer input norm weight: " << input_norm_->weight();
+  // LOG(INFO) << "decoder layer input norm weight: " << input_norm_->weight();
   std::tie(x, residual) = apply_norm(input_norm_, x, residual, pre_fp8_scale);
-  LOG(INFO) << "decoder layer pre norm x: " << x;
-  LOG(INFO) << "decoder layer pre norm residual: " << x;
+  // LOG(INFO) << "decoder layer pre norm x: " << x;
+  // LOG(INFO) << "decoder layer pre norm residual: " << x;
 
   // Attention
   x = attention_->forward(positions, x, attn_metadata, kv_cache);
-  LOG(INFO) << "decoder layer attn: " << x;
+  // LOG(INFO) << "decoder layer attn: " << x;
 
   // Post-attention norm
   std::tie(x, residual) = apply_norm(post_norm_, x, residual, post_fp8_scale);
-  LOG(INFO) << "decoder layer post norm: " << x;
+  // LOG(INFO) << "decoder layer post norm: " << x;
 
   // MLP
   x = mlp_->forward(x);
-  LOG(INFO) << "decoder layer mlp: " << x;
+  // LOG(INFO) << "decoder layer mlp: " << x;
 
   return x;
 }
