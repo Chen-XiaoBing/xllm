@@ -136,6 +136,9 @@ torch::Tensor Qwen2AttentionImpl::forward(
     KVCache& kv_cache) {
   // 1. qkv projection
   auto qkv = qkv_proj_->forward(hidden_states);
+  LOG(INFO) << "decoder layer attn qkv input: " << hidden_states;
+  LOG(INFO) << "decoder layer attn qkv_wieght: " << qkv_proj_->weight();
+  LOG(INFO) << "decoder layer attn qkv: " << qkv;
 
   auto q = qkv.slice(/*dim=*/-1, 0, q_size_);
   auto k = qkv.slice(/*dim=*/-1, q_size_, q_size_ + kv_size_);
@@ -184,12 +187,17 @@ torch::Tensor Qwen2AttentionImpl::forward(
   }
   q = q.view({T, q_size_});
   k = k.view({T, kv_size_});
+  LOG(INFO) << "decoder layer attn rope_q: " << q;
+  LOG(INFO) << "decoder layer attn rope_k: " << k;
 
   // 5. store k/v cache and do attention
   auto out = std::get<0>(attn_->forward(attn_metadata, q, k, v, kv_cache));
+  LOG(INFO) << "decoder layer attn out: " << out;
 
   // 6. output projection
-  return o_proj_->forward(out);
+  out = o_proj_->forward(out);
+  LOG(INFO) << "decoder layer attn proj out: " << out;
+  return out;
 }
 
 void Qwen2AttentionImpl::load_state_dict(const StateDict& state_dict) {

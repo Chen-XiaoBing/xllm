@@ -26,6 +26,7 @@ void load_weight(const StateDict& state_dict,
                  bool& weight_is_loaded) {
   torch::NoGradGuard no_grad;
   const auto tensor = state_dict.get_tensor(name);
+  // LOG(INFO) << "try name: " << name << ", defined: " << tensor.defined();
   if (tensor.defined()) {
     CHECK(!weight_is_loaded)
         << "weight already loaded, name: " << state_dict.prefix() << name;

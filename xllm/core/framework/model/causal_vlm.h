@@ -45,25 +45,36 @@ class CausalVLMImpl : public CausalVLM {
       : model_(std::move(model)), options_(options) {}
 
   MMDict encode(const ModelInputParams& parameters) override {
+    LOG(INFO) << "start encode";
     return model_->get_multimodal_embeddings(parameters);
+    LOG(INFO) << "finish encode";
   }
 
   torch::Tensor get_input_embeddings(
       const torch::Tensor& input_ids,
       const ModelInputParams& input_params) override {
-    return model_->get_input_embeddings(input_ids, input_params);
+    LOG(INFO) << "start get_input_embeddings";
+    auto out = model_->get_input_embeddings(input_ids, input_params);
+    LOG(INFO) << "finish get_input_embeddings";
+    return out;
   }
 
   ModelOutput forward(const torch::Tensor& tokens,
                       const torch::Tensor& positions,
                       std::vector<KVCache>& kv_caches,
                       const ModelInputParams& parameters) override {
-    return model_->forward(tokens, positions, kv_caches, parameters);
+    LOG(INFO) << "start model forward";
+    auto out = model_->forward(tokens, positions, kv_caches, parameters);
+    LOG(INFO) << "finish model forward";
+    return out;
   }
 
   torch::Tensor logits(const torch::Tensor& hidden_states,
                        const torch::Tensor& seleted_idxes) override {
-    return model_->logits(hidden_states, seleted_idxes);
+    LOG(INFO) << "start logits";
+    auto out = model_->logits(hidden_states, seleted_idxes);
+    LOG(INFO) << "finish logits";
+    return out;
   }
 
   void load_model(std::unique_ptr<ModelLoader> loader) override {

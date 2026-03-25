@@ -63,7 +63,7 @@ class StateDict {
   auto begin() const { return dict_.begin(); }
   auto end() const { return dict_.end(); }
 
- protected:
+  // protected:
   std::unordered_map<std::string, torch::Tensor> dict_;
 
   TensorTransform transform_func_ = nullptr;

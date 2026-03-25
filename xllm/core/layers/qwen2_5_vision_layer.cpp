@@ -47,13 +47,17 @@ Qwen2_5_VisionLayerImpl::Qwen2_5_VisionLayerImpl(const ModelContext& context,
                                   quant_config,
                                   parallel_args.tp_group_,
                                   options));
+  // LOG(INFO) << "===> dim: " << dim << " intermediate_size: " <<
+  // args.mm_intermediate_size() << " mlp_: " << mlp_;
 }
 
 void Qwen2_5_VisionLayerImpl::load_state_dict(const StateDict& state_dict) {
+  // LOG(INFO) << "===> start load_state_dict";
   attention_->load_state_dict(state_dict.get_dict_with_prefix("attn."));
   mlp_->load_state_dict(state_dict.get_dict_with_prefix("mlp."));
   norm1_->load_state_dict(state_dict.get_dict_with_prefix("norm1."));
   norm2_->load_state_dict(state_dict.get_dict_with_prefix("norm2."));
+  // LOG(INFO) << "===> finish load_state_dict";
 }
 
 torch::Tensor Qwen2_5_VisionLayerImpl::forward(
@@ -65,6 +69,18 @@ torch::Tensor Qwen2_5_VisionLayerImpl::forward(
     ModelInputParams& input_params,
     int node_id) {
   auto norm_output1 = std::get<0>(norm1_(hidden_states));
+  auto get_shape_str = [&](const at::Tensor& tensor) {
+    std::stringstream ss;
+    auto sizes = tensor.sizes();
+    ss << "[";
+    for (size_t i = 0; i < sizes.size(); ++i) {
+      ss << sizes[i];
+      if (i < sizes.size() - 1) ss << ", ";
+    }
+    ss << "]";
+    return ss.str();
+  };
+  LOG(INFO) << "===> norm_output1: " << get_shape_str(norm_output1);
   auto output = hidden_states + attention_(norm_output1,
                                            m_cos_pos,
                                            m_sin_pos,
@@ -73,6 +89,7 @@ torch::Tensor Qwen2_5_VisionLayerImpl::forward(
                                            input_params);
   auto norm_output2 = std::get<0>(norm2_(output));
   output = output + mlp_(norm_output2);
+  LOG(INFO) << "===> output: " << get_shape_str(output);
   return output;
 }
 

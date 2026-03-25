@@ -197,7 +197,23 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
 
   // 5. store k/v cache and do attention
 #if defined(USE_MLU)
+  auto get_shape_str = [&](const at::Tensor& tensor) {
+    std::stringstream ss;
+    auto sizes = tensor.sizes();
+    ss << "[";
+    for (size_t i = 0; i < sizes.size(); ++i) {
+      ss << sizes[i];
+      if (i < sizes.size() - 1) ss << ", ";
+    }
+    ss << "]";
+    return ss.str();
+  };
   std::optional<torch::Tensor> output_lse = std::nullopt;
+  LOG(INFO) << "===> q: " << get_shape_str(q);
+  LOG(INFO) << "===> k: " << get_shape_str(k);
+  LOG(INFO) << "===> v: " << get_shape_str(v);
+  LOG(INFO) << "===> output: " << get_shape_str(output);
+  LOG(INFO) << "===> cuseq_len: " << cu_seq_len;
 
   xllm::kernel::mlu::batch_prefill(q,
                                    k,
@@ -221,6 +237,7 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
                                    /*window_size_right=*/-1,
                                    /*compute_dtype=*/"half",
                                    /*return_lse=*/false);
+  LOG(INFO) << "===> batch_prefill out: " << get_shape_str(output);
 #elif defined(USE_CUDA)
   // CUDA path: use a pure PyTorch vision attention implementation that matches
   // Transformers Qwen2.5-VL VisionAttention. FlashInfer's precompiled AOT

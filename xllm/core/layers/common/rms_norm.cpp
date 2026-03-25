@@ -31,7 +31,8 @@ RMSNormImpl::RMSNormImpl(int64_t dim,
                          const torch::TensorOptions& options)
     : norm_dim_(dim), eps_(eps), mode_(kRmsNormMode) {
   weight_ = register_parameter("weight",
-                               torch::empty({dim}, options),
+                               // torch::empty({dim}, options),
+                               torch::zeros({dim}, options),
                                /*requires_grad=*/false);
 }
 
