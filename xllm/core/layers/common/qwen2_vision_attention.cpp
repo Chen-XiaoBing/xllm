@@ -40,7 +40,7 @@ Qwen2VisionAttentionImpl::Qwen2VisionAttentionImpl(
   num_attention_heads_per_partition_ = num_heads / tp_size;
   scale_ = 1.0 / std::sqrt(static_cast<float>(hidden_size_per_attention_head_));
 
-  bool hias_bias = args.model_type() != "oxygenvlm";
+  bool has_bias = args.model_type() != "oxygenvlm";
   LOG(INFO) << "QKV with bias: " << has_bias
             << ", model_type:" << args.model_type();
   qkv_proj_ =

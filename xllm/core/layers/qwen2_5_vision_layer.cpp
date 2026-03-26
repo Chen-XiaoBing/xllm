@@ -36,9 +36,11 @@ Qwen2_5_VisionLayerImpl::Qwen2_5_VisionLayerImpl(const ModelContext& context,
     norm2_->set_layernorm_mode();
     is_gated = false;
   }
+  LOG(INFO) << "is_qwen3_style: " << is_qwen3_style
+            << ", is_gated: " << is_gated;
 
   bool has_bias = args.model_type() != "oxygenvlm";
-  LOG(INFO) << "MLP with bias: " << with_bias
+  LOG(INFO) << "MLP with bias: " << has_bias
             << ", model_type:" << args.model_type();
   mlp_ = register_module("mlp",
                          DenseMLP(dim,
