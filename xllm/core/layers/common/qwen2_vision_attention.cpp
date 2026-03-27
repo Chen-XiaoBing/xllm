@@ -24,6 +24,28 @@ limitations under the License.
 namespace xllm {
 namespace layer {
 
+void dump_tensor(torch::Tensor tensor, std::string file_name) {
+  return;
+  auto sizes = tensor.sizes();
+  tensor = tensor.cpu().contiguous().to(torch::kFloat32).reshape({-1});
+  std::ofstream file(file_name);
+  if (!file.is_open()) {
+    throw std::runtime_error("Fail to open file: " + file_name);
+  }
+  file << "Tensor Shape: [";
+  for (int64_t i = 0; i < sizes.size(); ++i) {
+    file << sizes[i];
+    if (i < sizes.size() - 1) file << ", ";
+  }
+  file << "]\n";
+
+  int64_t num_elements = tensor.numel();
+  file << "Tensor Values[" << num_elements << "]:\n";
+  for (int64_t i = 0; i < num_elements; ++i)
+    file << tensor[i].item<float>() << "\n";
+  file.close();
+}
+
 Qwen2VisionAttentionImpl::Qwen2VisionAttentionImpl(
     const ModelContext& context) {
   const auto& args = context.get_model_args();
@@ -68,6 +90,7 @@ Qwen2VisionAttentionImpl::Qwen2VisionAttentionImpl(
 
 std::vector<torch::Tensor> Qwen2VisionAttentionImpl::split_qkv(
     const torch::Tensor& qkv) {
+  dump_tensor(qkv, "qkv.pt");
   // [s, b, 3 * head * head_dim]
   auto sizes = qkv.sizes();
   int64_t seq_len = qkv.size(0);
@@ -80,6 +103,9 @@ std::vector<torch::Tensor> Qwen2VisionAttentionImpl::split_qkv(
   auto q = qkv_chunks[0];
   auto k = qkv_chunks[1];
   auto v = qkv_chunks[2];
+  dump_tensor(q, "q.pt");
+  dump_tensor(k, "k.pt");
+  dump_tensor(v, "v.pt");
 
   // 3 * [s, b, head * head_dim]
   if (tp_group_->world_size() > 1) {
@@ -153,6 +179,17 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
     torch::Tensor& cu_seq_len,
     std::vector<int32_t>& cu_seq_len_vec,
     ModelInputParams& params) {
+  auto get_shape_str = [&](const at::Tensor& tensor) {
+    std::stringstream ss;
+    auto sizes = tensor.sizes();
+    ss << "[";
+    for (size_t i = 0; i < sizes.size(); ++i) {
+      ss << sizes[i];
+      if (i < sizes.size() - 1) ss << ", ";
+    }
+    ss << "]";
+    return ss.str();
+  };
   // 1. qkv projection
   // LOG(INFO) << "qkv proj in: " << hidden_states;
   // LOG(INFO) << "qkv proj weight: " << qkv_proj_->weight();
@@ -167,6 +204,12 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
   auto q = qkv_split[0];
   auto k = qkv_split[1];
   auto v = qkv_split[2];
+  // LOG(INFO) << "q.shape: " << get_shape_str(q);
+  // LOG(INFO) << "k.shape: " << get_shape_str(k);
+  // LOG(INFO) << "v.shape: " << get_shape_str(v);
+  // LOG(INFO) << "q: " << q;
+  // LOG(INFO) << "k: " << k;
+  // LOG(INFO) << "v: " << v;
   int64_t B = q.size(0);
   int64_t S = q.size(1);
   int64_t head_dim = q.size(3);
@@ -186,7 +229,7 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
   // q and k. A second call would incorrectly apply RoPE to k a second time.
   xllm::kernel::RotaryParams rotary_params;
   rotary_params.q = q;
-  rotary_params.k = k;
+  // rotary_params.k = k;
   rotary_params.sin = m_sin_pos;
   rotary_params.cos = m_cos_pos;
   rotary_params.interleaved = false;
@@ -194,6 +237,12 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
   rotary_params.cu_query_lens = cu_seq_len;
   rotary_params.max_query_len = max_seqlen;
   xllm::kernel::apply_rotary(rotary_params);
+  rotary_params.q = k;
+  xllm::kernel::apply_rotary(rotary_params);
+  dump_tensor(q, "rope_q.pt");
+  dump_tensor(k, "rope_k.pt");
+  dump_tensor(m_sin_pos, "sin.pt");
+  dump_tensor(m_cos_pos, "cos.pt");
 
   // q, k, v = (rearrange(x, "b s ... -> (b s) ...") for x in [q, k, v])
   // q and k are already [B*S, H, D] after the reshape above; just
@@ -203,17 +252,6 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
 
   // 5. store k/v cache and do attention
 #if defined(USE_MLU)
-  auto get_shape_str = [&](const at::Tensor& tensor) {
-    std::stringstream ss;
-    auto sizes = tensor.sizes();
-    ss << "[";
-    for (size_t i = 0; i < sizes.size(); ++i) {
-      ss << sizes[i];
-      if (i < sizes.size() - 1) ss << ", ";
-    }
-    ss << "]";
-    return ss.str();
-  };
   std::optional<torch::Tensor> output_lse = std::nullopt;
   LOG(INFO) << "===> q: " << get_shape_str(q);
   LOG(INFO) << "===> k: " << get_shape_str(k);
@@ -238,12 +276,14 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
                                    max_seqlen,
                                    max_seqlen,
                                    scale_,
-                                   /*is_causal=*/true,
+                                   // /*is_causal=*/true,
+                                   /*is_causal=*/false,
                                    /*window_size_left=*/-1,
                                    /*window_size_right=*/-1,
                                    /*compute_dtype=*/"half",
                                    /*return_lse=*/false);
   LOG(INFO) << "===> batch_prefill out: " << get_shape_str(output);
+  dump_tensor(output, "fa.pt");
 #elif defined(USE_CUDA)
   // CUDA path: use a pure PyTorch vision attention implementation that matches
   // Transformers Qwen2.5-VL VisionAttention. FlashInfer's precompiled AOT
@@ -257,7 +297,9 @@ torch::Tensor Qwen2VisionAttentionImpl::forward(
   // [B, S, ...] -> [S, B, ...]
   output = output.transpose(0, 1).reshape({-1, output.size(-1)});
   // 6. output projection
-  return proj_->forward(output);
+  auto proj_out = proj_->forward(output);
+  dump_tensor(proj_out, "proj_out.pt");
+  return proj_out;
 }
 
 void Qwen2VisionAttentionImpl::load_state_dict(const StateDict& state_dict) {

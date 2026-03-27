@@ -74,7 +74,7 @@ torch::Tensor Qwen2_5_VisionLayerImpl::forward(
     ModelInputParams& input_params,
     int node_id) {
   auto norm_output1 = std::get<0>(norm1_(hidden_states));
-  // LOG(INFO) << "vision norm1: " << norm_output1;
+  LOG(INFO) << "vision norm1: " << norm_output1;
   auto get_shape_str = [&](const at::Tensor& tensor) {
     std::stringstream ss;
     auto sizes = tensor.sizes();

@@ -124,7 +124,7 @@ class OxygenModelImpl : public QWen3ModelImpl {
       // LOG(INFO) << "layer " << i << " deepstack process output: " << h;
     }
     auto [hidden_states, residual_out] = norm_(h, residual);
-    LOG(INFO) << "OxygenForCausalLM output: " << hidden_states;
+    // LOG(INFO) << "OxygenForCausalLM output: " << hidden_states;
     return ModelOutput(hidden_states, residual_out);
   }
 };

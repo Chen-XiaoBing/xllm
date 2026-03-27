@@ -318,44 +318,6 @@ class OxygenVLMVisionPatchMergerImpl : public torch::nn::Module {
 };
 TORCH_MODULE(OxygenVLMVisionPatchMerger);
 
-// class OxygenVLMVisionBlockImpl : public torch::nn::Module {
-//  public:
-//   OxygenVLMVisionBlockImpl(const ModelContext& context) {
-//     // register submodules
-//     encoder_layer_ = register_module("encoder_layer",
-//                                      layer::NpuGlm4VisionEncoderLayer(context));
-//   }
-//   torch::Tensor forward(torch::Tensor& x,
-//                         torch::Tensor& m_cos_pos,
-//                         torch::Tensor& m_sin_pos,
-//                         torch::Tensor& cu_seq_len,
-//                         std::vector<int>& cu_seq_len_vec,
-//                         ModelInputParams& input_params,
-//                         int node_id) {
-//     return encoder_layer_(x,
-//                           m_cos_pos,
-//                           m_sin_pos,
-//                           cu_seq_len,
-//                           cu_seq_len_vec,
-//                           input_params,
-//                           node_id);
-//   }
-//
-//   // load the weight from the checkpoint
-//   void load_state_dict(const StateDict& state_dict) {
-//     // call each submodule's load_state_dict function
-//     encoder_layer_->load_state_dict(state_dict);
-//   }
-//
-//   void verify_loaded_weights(const std::string& prefix) const {
-//     encoder_layer_->verify_loaded_weights();
-//   }
-//   void merge_loaded_weights() { encoder_layer_->merge_loaded_weights(); }
-//
-//  private:
-//   layer::NpuGlm4VisionEncoderLayer encoder_layer_{nullptr};
-// };
-// TORCH_MODULE(OxygenVLMVisionBlock);
 using OxygenVLMVisionBlock = layer::Qwen2_5_VisionLayer;
 
 class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
@@ -456,8 +418,9 @@ class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
                         torch::Tensor grid_thw,
                         const ModelInputParams& input_params) {
     hidden_states = patch_embed_(hidden_states);
-    LOG(INFO) << "patch_embed out: " << hidden_states;
+    // LOG(INFO) << "patch_embed out: " << hidden_states;
     hidden_states = std::get<0>(post_conv_layernorm_(hidden_states));
+    // LOG(INFO) << "post_conv_layernorm out: " << hidden_states;
 
     auto [rotary_pos_emb, image_type_ids] = rot_pos_emb(grid_thw);
     auto emb = torch::cat({rotary_pos_emb, rotary_pos_emb}, -1);
@@ -495,15 +458,15 @@ class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
     std::vector<int> seqlens;
     seqlens.assign(seqlens_cpu.data_ptr<int>(),
                    seqlens_cpu.data_ptr<int>() + seqlens_cpu.numel());
-    LOG(INFO) << "===> seqlens_cpu: " << seqlens_cpu;
-    LOG(INFO) << "===> cu_seqlens: " << cu_seqlens;
+    // LOG(INFO) << "===> seqlens_cpu: " << seqlens_cpu;
+    // LOG(INFO) << "===> cu_seqlens: " << cu_seqlens;
 
     hidden_states = embeddings_(hidden_states,
                                 seqlens,
                                 grid_thw,
                                 image_type_ids.select(1, 0),
                                 image_type_ids.select(1, 1));
-    LOG(INFO) << "vision embed out: " << hidden_states;
+    // LOG(INFO) << "vision embed out: " << hidden_states;
     ModelInputParams& input_params_new =
         const_cast<ModelInputParams&>(input_params);
     torch::Tensor cu_seqlens_cpu = cu_seqlens.cpu();
@@ -511,7 +474,7 @@ class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
         cu_seqlens_cpu.data_ptr<int>(),
         cu_seqlens_cpu.data_ptr<int>() + cu_seqlens_cpu.numel());
     cu_seqlens = cu_seqlens.to(hidden_states.device());
-    LOG(INFO) << "===> cuseqlens: " << cu_seqlens;
+    // LOG(INFO) << "===> cuseqlens: " << cu_seqlens;
     for (int idx = 0; idx < blocks_->size(); ++idx) {
       // LOG(INFO) << "====> layer: " << idx;
       hidden_states = layers_[idx](hidden_states,
@@ -521,6 +484,7 @@ class OxygenVLMVisionTransformerImpl : public torch::nn::Module {
                                    cu_seqlens_vec,
                                    input_params_new,
                                    idx);
+      // LOG(INFO) << "layer " << idx << " out: " << hidden_states;
     }
     LOG(INFO) << "vision layers out: " << hidden_states;
     LOG(INFO) << "start post layernorm";
